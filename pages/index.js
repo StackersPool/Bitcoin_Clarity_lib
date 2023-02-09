@@ -23,7 +23,8 @@ export default function Home() {
       functionArgs: [
         tupleCV(
           {
-            version: bufferCV(block.version), parent: bufferCV(block.previousblockhash), merkle_root: bufferCV(block.merkleroot), timestamp: bufferCV(block.time),
+            version: bufferCV(block.version), parent: bufferCV(block.previousblockhash), 
+            merkle_root: bufferCV(block.merkleroot), timestamp: bufferCV(block.time),
             nbits: bufferCV(block.bits), nonce: bufferCV(block.nonce), height: uintCV(block.height)
           }
         ),
