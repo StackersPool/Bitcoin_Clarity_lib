@@ -17,7 +17,7 @@ export default function Home() {
     console.log(blockhash);
     console.log(block);
     const options = {
-      contractAddress: 'STT4SQP5RC1BFAJEQKBHZMXQ8NQ7G118F0XRWTMV',
+      contractAddress: 'ST16GEW6P7GBGZG0PXRXFJEMR3TJHJEY2HHFN76M2',
       contractName: 'clarity-bitcoin',
       functionName: 'was-tx-mined',
       functionArgs: [
@@ -85,7 +85,7 @@ export default function Home() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          Powered by{" "}
+          Powered by{"Stackerspool"}
           <span className={styles.logo}>
             <Image src="/vercel.svg" alt="Vercel Logo" width={72} height={16} />
           </span>
