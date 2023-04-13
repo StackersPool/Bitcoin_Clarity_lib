@@ -1,61 +1,105 @@
+import { hexToBytes, intToBytes } from "@stacks/common";
+import {
+  bufferCV,
+  callReadOnlyFunction,
+  cvToString,
+  listCV,
+  tupleCV,
+  uintCV,
+} from "@stacks/transactions";
 import Head from "next/head";
 import Image from "next/image";
 import ConnectWallet, { userSession } from "../components/ConnectWallet";
 import ContractCallVote from "../components/ContractCallVote";
 import styles from "../styles/Home.module.css";
-import { callReadOnlyFunction, uintCV, listCV, tupleCV, bufferCV, bufferCVFromString, } from '@stacks/transactions';
+
+import sha256 from "sha256";
+
 //==
 
-import axios from 'axios';
-import { StacksTestnet } from "@stacks/network";
+import { StacksMainnet } from "@stacks/network";
+import { hexReverse } from "../components/lib/utils-hash";
+import {
+  MerkleTree,
+  hexStringBtcHash,
+} from "../components/lib/utils-merkleTree";
+import axios from "axios";
 
 export default function Home() {
-  const getWasTxMined = async (e) => {
-    const btc_TXID = '1a5b9c6c279bd807aec9923495b8b913aab210e7b9b7bfbe3b0fc1e3281c8fbb';
-    const blockhash = (await axios.get(`https://btc.getblock.io/rest/tx/1015a8d3-1f41-4d2b-9bdc-0f4c917ae94d/${btc_TXID}.json`)).data;
-    const block = (await axios.get(`https://btc.getblock.io/rest/block/1015a8d3-1f41-4d2b-9bdc-0f4c917ae94d/${blockhash.blockhash}.json`)).data;
-    console.log(blockhash);
-    console.log(block);
-    const options = {
-      contractAddress: 'ST16GEW6P7GBGZG0PXRXFJEMR3TJHJEY2HHFN76M2',
-      contractName: 'clarity-bitcoin',
-      functionName: 'was-tx-mined',
-      functionArgs: [
-        tupleCV(
-          {
-            version: bufferCV(block.version), parent: bufferCV(block.previousblockhash), 
-            merkle_root: bufferCV(block.merkleroot), timestamp: bufferCV(block.time),
-            nbits: bufferCV(block.bits), nonce: bufferCV(block.nonce), height: uintCV(block.height)
-          }
-        ),
-        bufferCV(btc_TXID),
-        tupleCV(
-          {
-            tx_index: uintCV(block.nTx),
-            hashes: listCV(
-              block.tx
-                .filter(({ hash }, index) => index < 12)
-                .map(({ hash }) => bufferCV(hash))
-            ),
-            tree_depth: uintCV(block.weight)
-          }
-        )
-      ],
-      network: new StacksTestnet(),
-      senderAddress: userSession.loadUserData().profile.stxAddress.testnet,
-    };
-    console.log(options);
-    try {
-      callReadOnlyFunction(options)
-        .then(result => {
-          console.log(result);
-        });
+  const getWasTxMined = async () => {
+    const btc_TXID =
+      "1a5b9c6c279bd807aec9923495b8b913aab210e7b9b7bfbe3b0fc1e3281c8fbb";
+    console.log("Verifying", btc_TXID);
+    const txDetails = (
+      await axios.get(
+        `https://btc.getblock.io/rest/tx/1015a8d3-1f41-4d2b-9bdc-0f4c917ae94d/${btc_TXID}.json`
+      )
+    ).data;
+    const block = (
+      await axios.get(
+        `https://btc.getblock.io/rest/block/1015a8d3-1f41-4d2b-9bdc-0f4c917ae94d/${txDetails.blockhash}.json`
+      )
+    ).data;
+    console.log({ txDetails });
+    console.log({ block });
 
+    const txIndex = block.tx
+      .map((tx) => tx.txid)
+      .findIndex((t) => t === btc_TXID);
+    console.log("tx index:", txIndex);
+
+    const headerCV = tupleCV({
+      version: bufferCV(intToBytes(block.version, false, 4).reverse()),
+      parent: bufferCV(hexToBytes(block.previousblockhash).reverse()),
+      "merkle-root": bufferCV(hexToBytes(block.merkleroot).reverse()),
+      timestamp: bufferCV(intToBytes(block.time, false, 4).reverse()),
+      nbits: bufferCV(hexToBytes(block.bits).reverse()),
+      nonce: bufferCV(intToBytes(block.nonce, false, 4).reverse()),
+    });
+
+    let options = {
+      contractAddress: "SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9",
+      contractName: "clarity-bitcoin-helper",
+      functionName: "concat-header",
+      functionArgs: [headerCV],
+      network: new StacksMainnet(),
+      senderAddress: userSession.loadUserData().profile.stxAddress.mainnet,
+    };
+
+    const headerBuffCV = await callReadOnlyFunction(options);
+
+    const merkleTree = new MerkleTree(
+      block.tx.map((t) => hexReverse(t.txid)),
+      hexStringBtcHash(sha256)
+    );
+    const proofElements = merkleTree.getProofElements(txIndex);
+    const treeDepth = merkleTree.getTreeDepth();
+
+    options = {
+      contractAddress: "SP2PABAF9FTAJYNFZH93XENAJ8FVY99RRM50D2JG9",
+      contractName: "clarity-bitcoin-lib-v2",
+      functionName: "was-tx-mined-compact",
+      functionArgs: [
+        uintCV(block.height),
+        bufferCV(hexToBytes(txDetails.hex)),
+        headerBuffCV,
+        tupleCV({
+          "tx-index": uintCV(txIndex),
+          hashes: listCV(proofElements.map((pe) => bufferCV(hexToBytes(pe)))),
+          "tree-depth": uintCV(treeDepth),
+        }),
+      ],
+      network: new StacksMainnet(),
+      senderAddress: userSession.loadUserData().profile.stxAddress.mainnet,
+    };
+
+    try {
+      const result = await callReadOnlyFunction(options);
+      console.log("was-tx-mined", cvToString(result));
     } catch (error) {
       console.log(error);
     }
-
-  }
+  };
   return (
     <div className={styles.container}>
       <Head>
