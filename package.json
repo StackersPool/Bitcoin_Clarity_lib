@@ -8,6 +8,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@stacks/common": "^6.0.0",
     "@stacks/connect": "^7.0.0",
     "@stacks/connect-react": "^20.0.0",
     "@stacks/network": "^5.0.0",
@@ -16,7 +17,7 @@
     "next": "12.2.5",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "stacks-bitcoin-api": "web3devs/stacks-bitcoin-api"
+    "sha256": "^0.2.0"
   },
   "devDependencies": {
     "eslint": "8.23.0",
