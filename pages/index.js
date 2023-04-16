@@ -3,7 +3,10 @@ import Image from "next/image";
 import ConnectWallet, { userSession } from "../components/ConnectWallet";
 import ContractCallVote from "../components/ContractCallVote";
 import styles from "../styles/Home.module.css";
+import { hexToBytes, bytesToHex } from "@stacks/common";
 import { callReadOnlyFunction, uintCV, listCV, tupleCV, bufferCV, bufferCVFromString, } from '@stacks/transactions';
+import {MerkleTree} from "merkletreejs";
+import { sha256 } from "sha256";
 //==
 
 import axios from 'axios';
@@ -14,6 +17,18 @@ export default function Home() {
     const btc_TXID = '1a5b9c6c279bd807aec9923495b8b913aab210e7b9b7bfbe3b0fc1e3281c8fbb';
     const blockhash = (await axios.get(`https://btc.getblock.io/rest/tx/1015a8d3-1f41-4d2b-9bdc-0f4c917ae94d/${btc_TXID}.json`)).data;
     const block = (await axios.get(`https://btc.getblock.io/rest/block/1015a8d3-1f41-4d2b-9bdc-0f4c917ae94d/${blockhash.blockhash}.json`)).data;
+    const txids = block.tx.map(t => t.txid);
+    const txIndex = txids.findIndex(id => id === btc_TXID);
+    const tree = new MerkleTree(txids, sha256, { isBitcoinTree: true });
+    const treeDepth = tree.getDepth();
+    const proof = tree.getProof(btc_TXID, txIndex);
+    console.log(proof)
+    const proofCV = tupleCV({
+      'tx-index': uintCV(txIndex),
+      hashes: listCV(proof.map(po => bufferCV(hexToBytes(po.data)))),
+      'tree-depth': uintCV(treeDepth),
+    });
+    
     console.log(blockhash);
     console.log(block);
     const options = {
@@ -23,7 +38,7 @@ export default function Home() {
       functionArgs: [
         tupleCV(
           {
-            version: bufferCV(block.version), parent: bufferCV(block.previousblockhash), 
+            version: bufferCV(block.version), parent: bufferCV(block.previousblockhash),
             merkle_root: bufferCV(block.merkleroot), timestamp: bufferCV(block.time),
             nbits: bufferCV(block.bits), nonce: bufferCV(block.nonce), height: uintCV(block.height)
           }
