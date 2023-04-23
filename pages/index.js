@@ -1,48 +1,34 @@
+// Main imports
+import { StacksMainnet } from "@stacks/network";
+import { bufferCV, callReadOnlyFunction, cvToString, listCV, tupleCV, uintCV, } from "@stacks/transactions";
 import { hexToBytes, intToBytes } from "@stacks/common";
-import {
-  bufferCV,
-  callReadOnlyFunction,
-  cvToString,
-  listCV,
-  tupleCV,
-  uintCV,
-} from "@stacks/transactions";
+import { hexReverse } from "../components/lib/utils-hash";
+import { MerkleTree, hexStringBtcHash, } from "../components/lib/utils-merkleTree";
+import sha256 from "sha256";
+import axios from "axios";
+
+// Defined components
 import Head from "next/head";
 import Image from "next/image";
 import ConnectWallet, { userSession } from "../components/ConnectWallet";
 import ContractCallVote from "../components/ContractCallVote";
 import styles from "../styles/Home.module.css";
-
-import sha256 from "sha256";
-
 //==
 
-import { StacksMainnet } from "@stacks/network";
-import { hexReverse } from "../components/lib/utils-hash";
-import {
-  MerkleTree,
-  hexStringBtcHash,
-} from "../components/lib/utils-merkleTree";
-import axios from "axios";
 
 export default function Home() {
   const getWasTxMined = async () => {
-    const btc_TXID =
-      "1a5b9c6c279bd807aec9923495b8b913aab210e7b9b7bfbe3b0fc1e3281c8fbb";
-    console.log("Verifying", btc_TXID);
-    const txDetails = (
-      await axios.get(
-        `https://btc.getblock.io/rest/tx/1015a8d3-1f41-4d2b-9bdc-0f4c917ae94d/${btc_TXID}.json`
-      )
-    ).data;
-    const block = (
-      await axios.get(
-        `https://btc.getblock.io/rest/block/1015a8d3-1f41-4d2b-9bdc-0f4c917ae94d/${txDetails.blockhash}.json`
-      )
-    ).data;
+    // This should be dynamic, via input box from front-end
+    const btc_TXID = "1a5b9c6c279bd807aec9923495b8b913aab210e7b9b7bfbe3b0fc1e3281c8fbb";
+    // Get BTC txid info
+    const txDetails = (await axios.get(`https://btc.getblock.io/rest/tx/1015a8d3-1f41-4d2b-9bdc-0f4c917ae94d/${btc_TXID}.json`)).data;
+    // Gets block info
+    const block = (await axios.get(`https://btc.getblock.io/rest/block/1015a8d3-1f41-4d2b-9bdc-0f4c917ae94d/${txDetails.blockhash}.json`)).data;
+
     console.log({ txDetails });
     console.log({ block });
 
+    // Smart contract call args value construct
     const txIndex = block.tx
       .map((tx) => tx.txid)
       .findIndex((t) => t === btc_TXID);
